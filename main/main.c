@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 
-#include <stdio.h>
 #include "api_config.h"
 
 
@@ -18,6 +17,9 @@ void main_aplication(void){
 void error(void){
     printf("Error in api_config, reset\n");
 }
+
+
+
 
 void app_main(void)
 {
