@@ -1,14 +1,10 @@
 #include <stdio.h>
-
-
 #include "api_config.h"
 
 
 
 
 void main_aplication(void){
-
-
     printf("This is my main aplication\n");
 }
 
