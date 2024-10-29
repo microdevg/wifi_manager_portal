@@ -2,8 +2,10 @@
 #define API_CONFIG_H
 
 
-typedef void (*esp_callback_t)(void);
 
+
+
+#include "base.h"
 
 
 /**
