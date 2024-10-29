@@ -7,6 +7,11 @@
 
 
 
+/**
+ * @brief Inicio el esp32 como access point
+ * 
+ */
+void wifi_init_ap(char* wifi_id, char*wifi_pass);
 
 
 /**
