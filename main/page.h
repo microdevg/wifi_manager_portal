@@ -1,5 +1,5 @@
-#ifndef _PAGE_HTML_H
-
+#ifndef PAGE_HTML_H
+#define PAGE_HTML_H
 
 
 
@@ -32,5 +32,26 @@ const char html_page[] =
     "</body>"
     "</html>";
 
-#define PAGE_HTML_H
+
+
+
+// Página de confirmación al recibir credenciales
+const char confirmation_page[] =
+    "<html>"
+    "<head>"
+    "<meta charset=\"UTF-8\">"
+    "<style>"
+    "body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f2f2f2; }"
+    ".message { text-align: center; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }"
+    "h1 { color: #333333; font-size: 24px; }"
+    "p { color: #555555; font-size: 16px; }"
+    "</style>"
+    "</head>"
+    "<body>"
+    "<div class=\"message\">"
+    "<h1>Credenciales recibidas</h1>"
+    "<p>Iniciando dispositivo QMAX</p>"
+    "</div>"
+    "</body>"
+    "</html>";
 #endif
