@@ -95,6 +95,32 @@ Se planean las siguientes mejoras para futuras versiones del proyecto:
 
 <img src="./imgs/conn.png">
 
+
+
+
+### (SOLUCIONADO) ERROR: HEARDER FIELD ARE TOO LONG
+Por defecto la configuracion del proyecto asigna buffer de 500 bytes al servidor HTTP.
+Necesitamos cambiar ese valor para evitar el siguiente error:
+
+<img src="./imgs/error_header_field_are_too_long.png">
+
+Para solucionarlo ejecuto
+```c
+    idf.py menuconfig
+```
+Llamara al menu de configuracion de la aplicacion
+<img src="./imgs/solucion_error_http_server.png">
+
+Me dirijo por el menu por las siguientes opciones:
+```
+Component config -> HTTP Server
+Cambio de 500 a 800 en las primeras dos opciones:
+(800) Max HTTP Request Header Lenght
+(800) Max HTTP URI Length
+ ```
+ Para guardar cambios CRL + S y luego con Q salgo de la interfaz.
+ Los cambios quedan almacenados en el archivo sdkconfig. Debido a que ignoramos este archivo en el .gitignore tenemos que realizar este paso cada vez que clonamos este repo.
+
 ## Contribuciones
 Este proyecto está en desarrollo y es de código abierto. Las contribuciones para mejorar su eficiencia y añadir nuevas características son bienvenidas.
 
