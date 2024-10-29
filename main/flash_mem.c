@@ -1,5 +1,6 @@
 #include "flash_mem.h"
 #include "nvs.h"
+#include "nvs_flash.h"
 #include <stdio.h>
 
 
@@ -14,6 +15,8 @@ static int flash_inited = 0;
 
 void flash_mem_init(){
 
+    ESP_ERROR_CHECK(nvs_flash_init());
+
 
     esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
 
@@ -24,7 +27,7 @@ void flash_mem_init(){
     }
     else
     {
-        printf("Abierto correctamente");
+        printf("Inicializado correctamente\n");
         flash_inited = 1;
     }
 
@@ -74,21 +77,16 @@ void flash_mem_save(char* id,char* pass){
 }
 
 
-void flash_mem_get(char* id, char* pass){
+esp_err_t flash_mem_get(char* id, char* pass){
 
+    if(flash_inited == 0)flash_mem_init();
 
      esp_err_t err = nvs_open("storage", NVS_READONLY, &my_handle);
     if (err != ESP_OK)
     {
         printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-        return;
+        return err;
     }
-
-
-
-
-   
-
 
 
     // Leer SSID
@@ -98,9 +96,13 @@ void flash_mem_get(char* id, char* pass){
     // Luego se lee el string
     err = nvs_get_str(my_handle, SSID_KEY, id, &ssid_size);
 
+
+    
+
     if (err != ESP_OK)
     {
         printf("Failed to read SSID!\n");
+        return err;
     }
 
     // Leer Contraseña
@@ -111,16 +113,44 @@ void flash_mem_get(char* id, char* pass){
     if (err != ESP_OK)
     {
         printf("Failed to read Password!\n");
+        return err;
     }
 
     printf("NVS leída correctamente SSID:%s  password:%s", id, pass);
 
     nvs_close(my_handle);
     flash_inited = 0;
+    return err;
 
 }
 
 
+
+int flash_memory_clear_credentials(){
+
+     if(flash_inited == 0)flash_mem_init();
+
+     esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK)
+    {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+        return err;
+    }
+
+
+     nvs_erase_all(&my_handle);
+    err = nvs_erase_key(&my_handle,SSID_KEY );
+
+
+    err = nvs_erase_key(&my_handle,PASSWORD_KEY );
+    
+     // Confirmar cambios
+    err = nvs_commit(my_handle);
+
+
+    nvs_close(my_handle);
+    return err;
+}
 
 void flash_mem_deinit(){
 

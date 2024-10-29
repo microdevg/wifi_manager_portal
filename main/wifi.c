@@ -9,9 +9,14 @@
 
 #include <string.h>
 
-// Comentar si no quiero imprimir mis credenciales WiFi
-#define PRINT_CREDENTIALS       
-#define RCONN_TRY_MAX                   3
+
+#include "dns_server.h"
+
+#include <stdio.h>
+#include "esp_http_server.h"
+#include "flash_mem.h"
+
+#define RCONN_TRY_MAX                   10
 
 
 
@@ -20,7 +25,11 @@
 #endif
 
 
-#include "dns_server.h"
+
+esp_callback_t __callback_connection = NOT_CALLBACK;
+esp_callback_t __callback_disconnection = NOT_CALLBACK;
+esp_callback_t __callback_failed = NOT_CALLBACK;
+
 
 
 
@@ -42,54 +51,46 @@ static wifi_state_t _state ={
 
 
 
-
-
-
-
-
-esp_callback_t __callback_connection = NOT_CALLBACK;
-esp_callback_t __callback_disconnection = NOT_CALLBACK;
-esp_callback_t __callback_failed = NOT_CALLBACK;
-
-
 static int loop_inited = 0;
-
+static int waiting = 1;
 
 #define ESP32_AP_NAME       "QMAX-CONFIG"
 
-#include <stdio.h>
 
-void wifi_ok(void){
-    printf("wifi ok \n");
-}
-void wifi_error(void){
-    printf("wifi_error\n");
-}
-
-#include "esp_http_server.h"
 
 // HTML page to capture Wi-Fi credentials
 const char html_page[] =
-    "<html><body>"
-    "<h1>Configuracion WiFi</h1>"
-    "<p>Ingrese las credenciales de la red Wifi a la cual desea conectarse /n</p>"
+    "<html>"
+    "<head>"
+    "<meta charset=\"UTF-8\">"
+    "<style>"
+    "body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f2f2f2; }"
+    ".container { text-align: center; max-width: 400px; }"
+    "h1 { color: #333333; font-size: 24px; margin-bottom: 10px; }"
+    "p { color: #555555; font-size: 14px; margin-bottom: 20px; }"
+    "form { background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); text-align: left; }"
+    "input[type=text], input[type=password] { width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }"
+    "input[type=submit] { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }"
+    "input[type=submit]:hover { background-color: #45a049; }"
+    "</style>"
+    "</head>"
+    "<body>"
+    "<div class=\"container\">"
+    "<h1>Configuración WiFi</h1>"
+    "<p>Ingrese las credenciales de la red WiFi a la cual desea conectarse</p>"
     "<form action=\"/c\" method=\"POST\">"
-    "Nombre de REd WIFI: <input type=\"text\" name=\"ssid\"><br>"
-    "Contrasena de WIFI: <input type=\"password\" name=\"password\"><br>"
-    "<input type=\"submit\" value=\"Connect\">"
+    "Nombre de Red WiFi: <input type=\"text\" name=\"ssid\"><br>"
+    "Contraseña de WiFi: <input type=\"password\" name=\"password\"><br>"
+    "<input type=\"submit\" value=\"Conectar\">"
     "</form>"
-    "</body></html>";
-
-
-
-
+    "</div>"
+    "</body>"
+    "</html>";
 
 
 
 static char* _id;
 static char* _pass;
-
-
 
 //-----------------------------------------------------------CRD PROVIDE-----------------------------
 // Handle HTTP GET for the root page (Captive Portal)
@@ -104,7 +105,6 @@ static esp_err_t connect_post_handler(httpd_req_t *req)
 {
     char buf[100];
     int ret, remaining = req->content_len;
-
     while (remaining > 0)
     {
         ret = httpd_req_recv(req, buf, MIN(remaining, sizeof(buf)));
@@ -118,12 +118,15 @@ static esp_err_t connect_post_handler(httpd_req_t *req)
         sscanf(buf, "ssid=%31[^&]&password=%63s", _id, _pass); // Parse credentials
     }
 
-    printf( "Received SSID: %s, Password: %s", _id, _pass);
+    //printf( "Received SSID: %s, Password: %s", _id, _pass);
 
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_sendstr(req, "Credentials received. Connecting...");
+    httpd_resp_sendstr(req, "Credenciales recibidas, conectado a la red");
 
-
+    flash_mem_init();
+    flash_mem_save(_id,_pass);
+    printf("Credenciales guardadas\n");
+    waiting = 0;
 
     return ESP_OK;
 }
@@ -131,47 +134,31 @@ static esp_err_t connect_post_handler(httpd_req_t *req)
 
 
 
-static const httpd_uri_t root = {
-    .uri = "/",
-    .method = HTTP_GET,
-    .handler = root_get_handler};
+static const httpd_uri_t root = {.uri = "/",.method = HTTP_GET,.handler = root_get_handler};
 
-static const httpd_uri_t connect = {
-    .uri = "/c",
-    .method = HTTP_POST,
-    .handler = connect_post_handler};
+static const httpd_uri_t connect = {.uri = "/c", .method = HTTP_POST, .handler = connect_post_handler};
 
 static httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-
     if (httpd_start(&server, &config) == ESP_OK)
     {
-
         ESP_ERROR_CHECK(httpd_register_uri_handler(server, &root));
         ESP_ERROR_CHECK(httpd_register_uri_handler(server, &connect));
     }
-    else{
-        printf("Error al iniciar servidor\n");
-    }
+    else printf("Error al iniciar servidor\n");
     return server;
 }
 
 
 
-void wifi_init_ap(char* wifi_id, char*wifi_pass){
-    
-
-
+int *  wifi_init_ap(char* wifi_id, char*wifi_pass){
     _id = wifi_id;
     _pass = wifi_pass;
-
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    
-
     esp_netif_create_default_wifi_ap();
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -195,6 +182,8 @@ void wifi_init_ap(char* wifi_id, char*wifi_pass){
     dns_server_config_t dns_config = DNS_SERVER_CONFIG_SINGLE("*", "WIFI_AP_DEF");
     start_dns_server(&dns_config);
     loop_inited = 1;
+
+    return &waiting;
 }
 
 
@@ -203,56 +192,43 @@ void wifi_init_ap(char* wifi_id, char*wifi_pass){
 
 static void event_handler(void* arg, esp_event_base_t event_base,int32_t event_id, void* event_data)
 {
-    // WiFi esta listo para conectarse a una red en modo STATION.
-    if( event_base == WIFI_EVENT && 
-        event_id == WIFI_EVENT_STA_START) esp_wifi_connect();
-        
-    
+    if( event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) esp_wifi_connect();
     else if( event_base == WIFI_EVENT &&
-             event_id == WIFI_EVENT_STA_DISCONNECTED){
-            if(_state.try_counter < RCONN_TRY_MAX){
-                _state.wifi_connected = false;
-                printf("[Wifi desconectado, intentando reconexion:%u / %u]\n",
-                _state.try_counter,
-                RCONN_TRY_MAX);
-                
-                _state.try_counter ++;
-                esp_wifi_connect();}
-            else{
-                printf("[Fallaron los intentos de reconexion]\n");
-                _state.try_counter = 0;
-                CHECK_RUN_F(__callback_failed);
-                }
-            return;
-    }
+             event_id == WIFI_EVENT_STA_DISCONNECTED)
+            {   if(_state.try_counter < RCONN_TRY_MAX){
+                    _state.wifi_connected = false;
+                    printf("[Wifi desconectado, intentando reconexion:%u / %u]\n",_state.try_counter,RCONN_TRY_MAX);
+                    _state.try_counter ++;
+                    esp_wifi_connect();}
+                else{
+                    printf("[Fallaron los intentos de reconexion]\n");
+                    _state.try_counter = 0;
+                    CHECK_RUN_F(__callback_failed);}
+                return;
+            }
    
     if(event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP){
-        // Obtuvimos IP de la red, podemos trabajar.
+        printf("evento obtuve ip\n");
         _state.wifi_got_ip = true;
-        CHECK_RUN_F( __callback_connection);
-    }
+        CHECK_RUN_F( __callback_connection);}
 
-    if (event_id == WIFI_EVENT_STA_CONNECTED){
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED){
+        printf("evento se conecto a la red wifi\n");
         _state.try_counter = 0;
         _state.wifi_connected = true;
         return;}
-    if (event_id == WIFI_EVENT_STA_DISCONNECTED){
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED){
+        printf("evento me desconecte de la red\n");
         _state.wifi_connected = false;
         CHECK_RUN_F(__callback_disconnection);
         return;}
-
 }
 
 
 
-esp_err_t config_nvs_pre_connection(){
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-      ESP_ERROR_CHECK(err = nvs_flash_erase());
-      err = nvs_flash_init();
-    }
-    return err;
-}
+
+
+
 
 
 
@@ -269,11 +245,11 @@ esp_err_t config_nvs_pre_connection(){
     __callback_disconnection = cb_disconn ;
     __callback_failed = cb_failed;
 
-    esp_err_t err = ESP_OK;
-
-
-    //esp_wifi_restore();
-    ESP_ERROR_CHECK(err = config_nvs_pre_connection());
+     esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      ESP_ERROR_CHECK(err = nvs_flash_erase());
+      err = nvs_flash_init();
+    }
     ESP_ERROR_CHECK(err = esp_netif_init());
 
     // Configure el netif
@@ -300,7 +276,6 @@ esp_err_t config_nvs_pre_connection(){
                                                         NULL,
                                                         &instance_got_ip));
 
-
     }
   
 
@@ -318,11 +293,8 @@ esp_err_t config_nvs_pre_connection(){
     ESP_ERROR_CHECK(err = esp_wifi_start());
     loop_inited = 1;
 
-    #ifdef PRINT_CREDENTIALS
+    printf( "wifi_init_softap finished. SSID:%s password:%s \n",WIFI_ID, PASS);
 
-    printf( "wifi_init_softap finished. SSID:%s password:%s \n",
-             WIFI_ID, PASS);
-    #endif
     return err;
 }
 
