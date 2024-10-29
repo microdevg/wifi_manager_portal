@@ -98,7 +98,7 @@ Se planean las siguientes mejoras para futuras versiones del proyecto:
 
 
 
-### (SOLUCIONADO) ERROR: HEARDER FIELD ARE TOO LONG
+### ERROR: HEARDER FIELD ARE TOO LONG (SOLUCIONADO)
 Por defecto la configuracion del proyecto asigna buffer de 500 bytes al servidor HTTP.
 Necesitamos cambiar ese valor para evitar el siguiente error:
 
@@ -118,7 +118,7 @@ Cambio de 500 a 800 en las primeras dos opciones:
 (800) Max HTTP Request Header Lenght
 (800) Max HTTP URI Length
  ```
- Para guardar cambios CRL + S y luego con Q salgo de la interfaz.
+ Para guardar cambios CTRL + S y luego con Q salgo de la interfaz.
  Los cambios quedan almacenados en el archivo sdkconfig. Debido a que ignoramos este archivo en el .gitignore tenemos que realizar este paso cada vez que clonamos este repo.
 
 ## Contribuciones
