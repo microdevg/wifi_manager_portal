@@ -28,8 +28,8 @@ void reconection(){
 
 void api_config(esp_callback_t main_aplication, esp_callback_t error){
 
-    char id[32];
-    char pass[64];
+    char id[32] ={0};
+    char pass[64] = {0};
     printf("Verifico si tengo credenciales validas\n");
     flash_mem_init();
     flash_mem_get( id, pass);
